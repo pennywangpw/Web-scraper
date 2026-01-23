@@ -4,7 +4,7 @@ import xlsxwriter  # 修改點 1: 使用 xlsxwriter
 from urllib.parse import urljoin
 from io import BytesIO # 修改點 2: 用於處理圖片二進位資料
 import logging
-
+from untils import parse_price_blocks 
 
 # 加上logging設定
 logging.basicConfig(
@@ -46,10 +46,11 @@ worksheet.set_column('A:A', 15)  # 分類
 worksheet.set_column('B:B', 40)  # 品名
 worksheet.set_column('C:C', 15)  # 價格
 worksheet.set_column('D:D', 30)  # 顏色
+worksheet.set_column('E:E', 50)  # 備註
 worksheet.set_column('D:D', 20)  # 圖片欄位寬度
 
 # 寫入標題
-headers_list = ["Category", "Name", "Price", "Color", "Image"]
+headers_list = ["Category", "Name", "Price", "Color", "Note","Image"]
 for col_num, header in enumerate(headers_list):
     worksheet.write(0, col_num, header)
 
@@ -114,13 +115,18 @@ for item in category_items:
         else:
             logging.warning("找不到顏色資訊於商品: %s", name)
 
-        # 寫入文字資料
-        worksheet.write(row_idx, 0, category)
-        worksheet.write(row_idx, 1, name)
-        worksheet.write(row_idx, 2, price)
-        worksheet.write(row_idx, 3, color_info)
+        # price 可能包含多個價格區塊，需要解析 再寫入
+        price_blocks = parse_price_blocks(price)
 
-        
+        for price_block in price_blocks:
+            # 寫入文字資料
+            worksheet.write(row_idx, 0, category)
+            worksheet.write(row_idx, 1, name)
+            worksheet.write(row_idx, 2, price_block['price'])  # 將價格轉為整數寫入
+            worksheet.write(row_idx, 3, color_info)
+            worksheet.write(row_idx, 4, price_block['note']) #寫入備註 例如 5枚 / 30枚入
+            row_idx += 1
+
         # 修改點 3: 下載並插入圖片
         if img_url:
             try:
@@ -140,9 +146,6 @@ for item in category_items:
                 })
             except Exception as e:
                 logging.error("圖片下載失敗: %s, 錯誤: %s", img_url, e)
-        
-        row_idx += 1
-
 
 workbook.close()
 logging.info("所有資料已寫入 Excel 檔案。")
